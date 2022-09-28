@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn 
 import torchvision
@@ -15,8 +17,14 @@ from sklearn.datasets import load_svmlight_file
 
 from loss_fns import LogisticRegression, NLLSQ
 
+from dotenv import load_dotenv
+load_dotenv()
+
 
 def get_dataset(name, batch_size, percentage=1.0, scale=False, loss_target_range=None):
+
+    datasets_path = os.getenv("DATASETS_DIR")
+    print(datasets_path)
 
     if name == "MNIST":
         assert scale == False, "Scaling not applicable."
@@ -34,7 +42,7 @@ def get_dataset(name, batch_size, percentage=1.0, scale=False, loss_target_range
 
     elif name == "mushrooms":
 
-        trainX, trainY = load_svmlight_file(f"datasets/{name}")
+        trainX, trainY = load_svmlight_file(f"{datasets_path}/{name}")
         sample = np.random.choice(trainX.shape[0], round(trainX.shape[0] * percentage), replace=False)
         
         assert sample.shape == np.unique(sample).shape
@@ -46,7 +54,7 @@ def get_dataset(name, batch_size, percentage=1.0, scale=False, loss_target_range
         train_target = torch.tensor(trainY, dtype=torch.float)
         
     elif name == "colon-cancer":
-        trainX, trainY = load_svmlight_file(f"datasets/{name}") 
+        trainX, trainY = load_svmlight_file(f"{datasets_path}/{name}") 
 
         sample = np.random.choice(trainX.shape[0], round(trainX.shape[0] * percentage), replace=False)
 
@@ -62,7 +70,7 @@ def get_dataset(name, batch_size, percentage=1.0, scale=False, loss_target_range
 
     elif name == "covtype.libsvm.binary.scale" or name == "covtype.libsvm.binary":
         
-        trainX, trainY = load_svmlight_file(f"datasets/{name}")
+        trainX, trainY = load_svmlight_file(f"{datasets_path}/{name}")
         sample = np.random.choice(trainX.shape[0], round(trainX.shape[0] * percentage), replace=False)
 
         assert sample.shape == np.unique(sample).shape

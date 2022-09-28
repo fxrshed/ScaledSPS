@@ -2,7 +2,6 @@ from gettext import install
 import os 
 import argparse
 from operator import contains
-from xmlrpc.client import Boolean
 
 import torch
 from torch.utils.data import DataLoader
@@ -16,6 +15,9 @@ from optimizers import get_optimizer, SPS
 from utils import restricted_float
 
 from torch.utils.tensorboard import SummaryWriter
+
+from dotenv import load_dotenv
+load_dotenv()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -133,7 +135,9 @@ def main(dataset, percent, scale, batch_size, epochs,
         tb_writer.close()
 
     if save:
-        directory = f"results/{dataset}/percent_{percent}/scaled_{scale}/bs_{batch_size}/epochs_{epochs}/{loss_class}/{optimizer_class}/lr_{lr}/precond_{preconditioner}/slack_{slack_method}/lmd_{lmd}/seed_{seed}"
+        results_path = os.getenv("RESULTS_DIR")
+        directory = f"{results_path}/{dataset}/percent_{percent}/scaled_{scale}/bs_{batch_size}/epochs_{epochs}/{loss_class}/{optimizer_class}/lr_{lr}/precond_{preconditioner}/slack_{slack_method}/lmd_{lmd}/seed_{seed}"
+        print(directory)
         if not os.path.exists(directory):
             os.makedirs(directory)
             
