@@ -201,3 +201,4 @@ plots/
 datasets/
 runs/
 results/
+slurm_log/
