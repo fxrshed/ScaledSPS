@@ -1,6 +1,12 @@
 from torch import nn 
 from torch.functional import F
 
+def get_model(model_class):
+    if model_class == "smlenet":
+        return SmallLeNet
+    else:
+        return None
+
 class SmallLeNet(nn.Module):
     def __init__(self):
         super(SmallLeNet, self).__init__()

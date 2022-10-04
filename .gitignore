@@ -196,9 +196,12 @@ cython_debug/
 *.ipynb
 *.out
 *.sh
+slurm_*
 
 plots/
 datasets/
 runs/
 results/
 slurm_log/
+new_plots/
+nn_runs/

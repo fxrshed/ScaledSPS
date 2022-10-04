@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def get_dataset(name, batch_size, percentage=1.0, scale=False, loss_target_range=None):
+def get_dataset(name, batch_size, percentage=1.0, scale_range=None, loss_target_range=None):
 
     datasets_path = os.getenv("DATASETS_DIR")
     print(datasets_path)
@@ -29,7 +29,7 @@ def get_dataset(name, batch_size, percentage=1.0, scale=False, loss_target_range
     if name == "MNIST":
         assert scale == False, "Scaling not applicable."
 
-        train_dataset, test_dataset = get_MNIST(batch_size)
+        train_dataset, test_dataset = get_MNIST()
         # Data loader
         train_loader = torch.utils.data.DataLoader(dataset=train_dataset, 
                                                 batch_size=batch_size, 
@@ -82,9 +82,9 @@ def get_dataset(name, batch_size, percentage=1.0, scale=False, loss_target_range
         train_target = torch.tensor(trainY, dtype=torch.float)
 
 
-    if scale:
-        r1 = -10
-        r2 = 10
+    if scale_range != None:
+        r1 = scale_range[0]
+        r2 = scale_range[1]
         scaling_vec = (r1 - r2) * torch.rand(train_data.shape[1]) + r2
         scaling_vec = torch.pow(torch.e, scaling_vec)
         train_data = scaling_vec * train_data
