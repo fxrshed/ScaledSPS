@@ -90,7 +90,7 @@ def main(dataset, percent, scale, batch_size, epochs,
 
 
     if tb:
-        comment = f"/{dataset}-Percent:{percent}-Scaled:{scale}-BatchSize:{batch_size}-" \
+        comment = f"/{dataset}-Percent:{percent}-Scaled:[{-scale},{scale}]-BatchSize:{batch_size}-" \
             f"Epochs:{epochs}-Loss:{loss_class}-Optimizer:{optimizer_class}-" \
             f"Lr:{lr}-Precond:{preconditioner}-Slack:{slack_method}-"\
             f"Lmd:{lmd}-Seed:{seed}"    
@@ -100,7 +100,8 @@ def main(dataset, percent, scale, batch_size, epochs,
 
     loss = get_loss(loss_class)
     optimizer = get_optimizer(optimizer_class)
-    train_data, train_target = get_dataset(dataset, batch_size, percent, scale, loss.y_range) 
+    scale_range = [-scale, scale]
+    train_data, train_target = get_dataset(dataset, batch_size, percent, scale_range, loss.y_range) 
 
 
     if contains(("sgd", "adam"), optimizer_class):
@@ -136,7 +137,7 @@ def main(dataset, percent, scale, batch_size, epochs,
 
     if save:
         results_path = os.getenv("RESULTS_DIR")
-        directory = f"{results_path}/{dataset}/percent_{percent}/scaled_{scale}/bs_{batch_size}/epochs_{epochs}/{loss_class}/{optimizer_class}/lr_{lr}/precond_{preconditioner}/slack_{slack_method}/lmd_{lmd}/seed_{seed}"
+        directory = f"{results_path}/{dataset}/percent_{percent}/scale_[{-scale},{scale}]/bs_{batch_size}/epochs_{epochs}/{loss_class}/{optimizer_class}/lr_{lr}/precond_{preconditioner}/slack_{slack_method}/lmd_{lmd}/seed_{seed}"
         print(directory)
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -152,7 +153,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Help me!")
     parser.add_argument("--dataset", type=str)
     parser.add_argument("--percent", type=restricted_float, default=1.0)
-    parser.add_argument("--scale", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--scale", type=int, default=0)
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--loss", type=str, choices=["logreg", "nllsq"])

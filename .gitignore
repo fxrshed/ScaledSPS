@@ -201,3 +201,5 @@ plots/
 datasets/
 runs/
 results/
+new_plots/
+nn_runs/

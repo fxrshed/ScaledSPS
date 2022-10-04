@@ -14,6 +14,8 @@ def get_loss(loss):
         return LogisticRegression
     elif loss == "nllsq":
         return NLLSQ
+    elif loss == "nll_loss":
+        return torch.functional.F.nll_loss
     else:
         raise ValueError("Non-existent loss requested.")
 
