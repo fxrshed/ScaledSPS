@@ -196,6 +196,7 @@ cython_debug/
 *.ipynb
 *.out
 *.sh
+slurm_*
 
 plots/
 datasets/
