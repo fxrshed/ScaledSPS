@@ -1,19 +1,13 @@
 import datetime
 import os 
 import argparse
-from operator import contains
 import socket
 
 import torch
-from torch.utils.data import DataLoader
-import torch.utils.data as data_utils
-
-from torch.optim import SGD, Adam
 
 from datasets import get_dataset
 from loss_fns import get_loss
 from optimizers import get_optimizer, SPS
-from utils import restricted_float
 from nn_models import get_model
 
 from torch.utils.tensorboard import SummaryWriter
@@ -62,7 +56,8 @@ def train_nn(model, criterion, train_loader, test_loader, epochs, optimizer_clas
             tb.add_scalar("train/acc", train_acc, 0)
             tb.add_scalar("test/loss", test_loss, 0)
             tb.add_scalar("test/acc", test_acc, 0)
-            tb.add_scalar("slack", slack, 0)
+            if isinstance(optimizer, SPS):
+                tb.add_scalar("slack", slack, 0)
 
         hist.append([train_loss, train_acc, test_loss, test_acc, slack])
         
@@ -101,7 +96,8 @@ def train_nn(model, criterion, train_loader, test_loader, epochs, optimizer_clas
                     tb.add_scalar("train/acc", train_acc, epoch + 1)
                     tb.add_scalar("test/loss", test_loss, epoch + 1)
                     tb.add_scalar("test/acc", test_acc, epoch + 1)
-                    tb.add_scalar("slack", slack, epoch + 1)
+                    if isinstance(optimizer, SPS):
+                        tb.add_scalar("slack", slack, epoch + 1)
 
                 hist.append([train_loss, train_acc, test_loss, test_acc, slack])
         
@@ -135,7 +131,7 @@ def main(dataset, model_class, batch_size, epochs,
     train_loader, test_loader = get_dataset(dataset, batch_size) 
 
 
-    if contains(("sgd", "adam"), optimizer_class):
+    if optimizer_class in ["sgd", "adam"]:
         result = train_nn(
                     model, 
                     loss,
@@ -146,7 +142,7 @@ def main(dataset, model_class, batch_size, epochs,
                     tb_writer,
                     lr=lr
                 )
-    elif  optimizer_class == "sps":
+    elif optimizer_class == "sps":
        result = train_nn(
                     model, 
                     loss,
@@ -202,8 +198,3 @@ if __name__ == "__main__":
 
     main(args.dataset, args.model, args.batch_size, args.epochs, args.loss, args.optimizer, args.lr,
     args.preconditioner, args.slack, args.lmd, args.seed, args.save, args.tb)
-
-
-
-# python train.py --dataset= --model= --batch_size= --epochs= --loss= --optimizer= --lr== --preconditioner= --slack_method= --seed= --save
-

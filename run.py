@@ -1,13 +1,9 @@
-from gettext import install
 import os 
 import argparse
-from operator import contains
 
 import torch
 from torch.utils.data import DataLoader
 import torch.utils.data as data_utils
-
-from torch.optim import SGD, Adam
 
 from datasets import get_dataset
 from loss_fns import get_loss
@@ -103,8 +99,7 @@ def main(dataset, percent, scale, batch_size, epochs,
     scale_range = [-scale, scale]
     train_data, train_target = get_dataset(dataset, batch_size, percent, scale_range, loss.y_range) 
 
-
-    if contains(("sgd", "adam"), optimizer_class):
+    if optimizer_class in ["sgd", "adam"]:
         result = train(
             seed,
             loss,
@@ -137,7 +132,7 @@ def main(dataset, percent, scale, batch_size, epochs,
 
     if save:
         results_path = os.getenv("RESULTS_DIR")
-        directory = f"{results_path}/{dataset}/percent_{percent}/scale_[{-scale},{scale}]/bs_{batch_size}/epochs_{epochs}/{loss_class}/{optimizer_class}/lr_{lr}/precond_{preconditioner}/slack_{slack_method}/lmd_{lmd}/seed_{seed}"
+        directory = f"{results_path}/{dataset}/percent_{percent}/scale_{scale}/bs_{batch_size}/epochs_{epochs}/{loss_class}/{optimizer_class}/lr_{lr}/precond_{preconditioner}/slack_{slack_method}/lmd_{lmd}/seed_{seed}"
         print(directory)
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -172,8 +167,3 @@ if __name__ == "__main__":
 
     main(args.dataset, args.percent, args.scale, args.batch_size, args.epochs, args.loss, args.optimizer, args.lr,
     args.preconditioner, args.slack, args.lmd, args.seed, args.save, args.tb)
-
-
-
-# python train.py --dataset= --percent= --scale_data= --batch_size= --epochs= --loss= --optimizer= --lr== --preconditioner= --slack_method= --seed= --save
-
