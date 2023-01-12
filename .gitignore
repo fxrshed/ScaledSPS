@@ -194,6 +194,7 @@ cython_debug/
 
 
 *.ipynb
+*.pt
 *.out
 *.sh
 slurm_*

@@ -178,7 +178,7 @@ def main(dataset, model_class, batch_size, epochs,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Help me!")
-    parser.add_argument("--dataset", type=str)
+    parser.add_argument("--dataset", type=str, choices=["MNIST"])
     parser.add_argument("--model", type=str, choices=["smlenet"], default="smlenet")
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--epochs", type=int)
@@ -187,10 +187,10 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--preconditioner", type=str, choices=["none", "hutch"], default="none")
     parser.add_argument("--slack", type=str, choices=["none", "L1", "L2"], default="none")
-    parser.add_argument("--lmd", type=float, default=0.01)
+    parser.add_argument("--lmd", type=float, default=0.01, help="Lambda parameter.")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--save", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--tb", action=argparse.BooleanOptionalAction) 
+    parser.add_argument("--save", action=argparse.BooleanOptionalAction, default=False, help="Select to save the results of the run.")
+    parser.add_argument("--tb", action=argparse.BooleanOptionalAction, help="Select to log metrics to Tensorboard.") 
 
     args = parser.parse_args()
 
