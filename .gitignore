@@ -203,6 +203,7 @@ plots/
 datasets/
 runs/
 results/
+slurm_log/
 new_plots/
 nn_runs/
 notebooks/
