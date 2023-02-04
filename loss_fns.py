@@ -1,4 +1,3 @@
-from distutils.log import Log
 import torch
 
 def logistic_reg(w, X, y):
@@ -9,7 +8,6 @@ def nllsq(w, X, y):
 
 
 def get_loss(loss):
-
     if loss == "logreg":
         return LogisticRegression
     elif loss == "nllsq":

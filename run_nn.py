@@ -1,19 +1,13 @@
 import datetime
 import os 
 import argparse
-from operator import contains
 import socket
 
 import torch
-from torch.utils.data import DataLoader
-import torch.utils.data as data_utils
-
-from torch.optim import SGD, Adam
 
 from datasets import get_dataset
 from loss_fns import get_loss
 from optimizers import get_optimizer, SPS
-from utils import restricted_float
 from nn_models import get_model
 
 from torch.utils.tensorboard import SummaryWriter
@@ -62,7 +56,8 @@ def train_nn(model, criterion, train_loader, test_loader, epochs, optimizer_clas
             tb.add_scalar("train/acc", train_acc, 0)
             tb.add_scalar("test/loss", test_loss, 0)
             tb.add_scalar("test/acc", test_acc, 0)
-            tb.add_scalar("slack", slack, 0)
+            if isinstance(optimizer, SPS):
+                tb.add_scalar("slack", slack, 0)
 
         hist.append([train_loss, train_acc, test_loss, test_acc, slack])
         
@@ -101,7 +96,8 @@ def train_nn(model, criterion, train_loader, test_loader, epochs, optimizer_clas
                     tb.add_scalar("train/acc", train_acc, epoch + 1)
                     tb.add_scalar("test/loss", test_loss, epoch + 1)
                     tb.add_scalar("test/acc", test_acc, epoch + 1)
-                    tb.add_scalar("slack", slack, epoch + 1)
+                    if isinstance(optimizer, SPS):
+                        tb.add_scalar("slack", slack, epoch + 1)
 
                 hist.append([train_loss, train_acc, test_loss, test_acc, slack])
         
@@ -135,7 +131,7 @@ def main(dataset, model_class, batch_size, epochs,
     train_loader, test_loader = get_dataset(dataset, batch_size) 
 
 
-    if contains(("sgd", "adam"), optimizer_class):
+    if optimizer_class in ["sgd", "adam"]:
         result = train_nn(
                     model, 
                     loss,
@@ -146,7 +142,7 @@ def main(dataset, model_class, batch_size, epochs,
                     tb_writer,
                     lr=lr
                 )
-    elif  optimizer_class == "sps":
+    elif optimizer_class == "sps":
        result = train_nn(
                     model, 
                     loss,
@@ -182,7 +178,7 @@ def main(dataset, model_class, batch_size, epochs,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Help me!")
-    parser.add_argument("--dataset", type=str)
+    parser.add_argument("--dataset", type=str, choices=["MNIST"])
     parser.add_argument("--model", type=str, choices=["smlenet"], default="smlenet")
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--epochs", type=int)
@@ -191,10 +187,10 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--preconditioner", type=str, choices=["none", "hutch"], default="none")
     parser.add_argument("--slack", type=str, choices=["none", "L1", "L2"], default="none")
-    parser.add_argument("--lmd", type=float, default=0.01)
+    parser.add_argument("--lmd", type=float, default=0.01, help="Lambda parameter.")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--save", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--tb", action=argparse.BooleanOptionalAction) 
+    parser.add_argument("--save", action=argparse.BooleanOptionalAction, default=False, help="Select to save the results of the run.")
+    parser.add_argument("--tb", action=argparse.BooleanOptionalAction, help="Select to log metrics to Tensorboard.") 
 
     args = parser.parse_args()
 
@@ -202,8 +198,3 @@ if __name__ == "__main__":
 
     main(args.dataset, args.model, args.batch_size, args.epochs, args.loss, args.optimizer, args.lr,
     args.preconditioner, args.slack, args.lmd, args.seed, args.save, args.tb)
-
-
-
-# python train.py --dataset= --model= --batch_size= --epochs= --loss= --optimizer= --lr== --preconditioner= --slack_method= --seed= --save
-

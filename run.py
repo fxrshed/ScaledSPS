@@ -1,17 +1,13 @@
-from gettext import install
 import os 
 import argparse
-from operator import contains
 
 import torch
 from torch.utils.data import DataLoader
 import torch.utils.data as data_utils
 
-from torch.optim import SGD, Adam
-
 from datasets import get_dataset
 from loss_fns import get_loss
-from optimizers import get_optimizer, SPS
+from optimizers import get_optimizer, SPS, SPS2
 from utils import restricted_float
 
 from torch.utils.tensorboard import SummaryWriter
@@ -38,15 +34,18 @@ def train(seed, criterion_class, train_data, train_target, batch_size, steps, op
     g, = torch.autograd.grad(train_loss, params)
     grad_norm_sq = torch.linalg.norm(g).item() ** 2
     slack = 0
+    z = 0
 
     if tb:
         tb.add_scalar("loss", train_loss, 0)
         tb.add_scalar("grad_norm_squared", grad_norm_sq, 0)
-        if isinstance(optimizer, SPS):
+        if isinstance(optimizer, (SPS, SPS2)):
             tb.add_scalar("slack", slack, 0)
+        if isinstance(optimizer, SPS2):
+            tb.add_scalar("z", z, 0)
 
 
-    hist = [[train_loss.item(), grad_norm_sq, slack]]
+    hist = [[train_loss.item(), grad_norm_sq, slack, z]]
    
     for step in range(steps):
         for i, (batch_data, batch_target) in enumerate(train_dataloader):  
@@ -65,6 +64,12 @@ def train(seed, criterion_class, train_data, train_target, batch_size, steps, op
                 slack = optimizer.replay_buffer[-1]["slack"]
                 if tb:
                     tb.add_scalar("slack", slack, step + 1)
+            elif isinstance(optimizer, SPS2):     
+                optimizer.step(closure) 
+                slack = optimizer.replay_buffer[-1]["slack"]
+                z = optimizer.replay_buffer[-1]["z"]
+                if tb:
+                    tb.add_scalar("z", z, step + 1)
             else:
                 loss.backward()
                 optimizer.step()
@@ -77,7 +82,7 @@ def train(seed, criterion_class, train_data, train_target, batch_size, steps, op
             tb.add_scalar("loss", train_loss, step + 1)
             tb.add_scalar("grad_norm_squared", grad_norm_sq, step + 1)
 
-        hist.append([train_loss.item(), grad_norm_sq, slack])
+        hist.append([train_loss.item(), grad_norm_sq, slack, z])
     
         print(f"Loss: {train_loss.item()} | GradNorm^2: {grad_norm_sq}")
 
@@ -86,14 +91,14 @@ def train(seed, criterion_class, train_data, train_target, batch_size, steps, op
 
 def main(dataset, percent, scale, batch_size, epochs, 
         loss_class, optimizer_class, lr, preconditioner, 
-        slack_method, lmd, seed, save, tb):
+        slack_method, lmd, mu, seed, save, tb):
 
 
     if tb:
         comment = f"/{dataset}-Percent:{percent}-Scaled:[{-scale},{scale}]-BatchSize:{batch_size}-" \
             f"Epochs:{epochs}-Loss:{loss_class}-Optimizer:{optimizer_class}-" \
             f"Lr:{lr}-Precond:{preconditioner}-Slack:{slack_method}-"\
-            f"Lmd:{lmd}-Seed:{seed}"    
+            f"Lmd:{lmd}-Mu:{mu}-Seed:{seed}"
         tb_writer = SummaryWriter(comment=comment)
     else:
         tb_writer = None
@@ -103,8 +108,7 @@ def main(dataset, percent, scale, batch_size, epochs,
     scale_range = [-scale, scale]
     train_data, train_target = get_dataset(dataset, batch_size, percent, scale_range, loss.y_range) 
 
-
-    if contains(("sgd", "adam"), optimizer_class):
+    if optimizer_class in ("sgd", "adam"):
         result = train(
             seed,
             loss,
@@ -116,7 +120,7 @@ def main(dataset, percent, scale, batch_size, epochs,
             tb_writer,
             lr=lr
         )
-    elif  optimizer_class == "sps":
+    elif  optimizer_class in ("sps", "sps2"):
        result = train(
             seed,
             loss,
@@ -128,7 +132,8 @@ def main(dataset, percent, scale, batch_size, epochs,
             tb_writer,
             preconditioner=preconditioner,
             slack_method=slack_method,
-            lmd=lmd
+            lmd=lmd,
+            mu=mu
         ) 
 
     if tb:
@@ -137,7 +142,8 @@ def main(dataset, percent, scale, batch_size, epochs,
 
     if save:
         results_path = os.getenv("RESULTS_DIR")
-        directory = f"{results_path}/{dataset}/percent_{percent}/scale_[{-scale},{scale}]/bs_{batch_size}/epochs_{epochs}/{loss_class}/{optimizer_class}/lr_{lr}/precond_{preconditioner}/slack_{slack_method}/lmd_{lmd}/seed_{seed}"
+        directory = f"{results_path}/{dataset}/percent_{percent}/scale_{scale}/bs_{batch_size}" \
+        f"/epochs_{epochs}/{loss_class}/{optimizer_class}/lr_{lr}/precond_{preconditioner}/slack_{slack_method}/lmd_{lmd}/mu_{mu}/seed_{seed}"
         print(directory)
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -145,35 +151,35 @@ def main(dataset, percent, scale, batch_size, epochs,
         torch.save([x[0] for x in result], f"{directory}/loss")
         torch.save([x[1] for x in result], f"{directory}/grad_norm_sq")
         
-        if optimizer_class == "sps":
+        if optimizer_class in ("sps", "sps2"):
             torch.save([x[2] for x in result], f"{directory}/slack")
+        if optimizer_class == "sps2":
+            torch.save([x[3] for x in result], f"{directory}/z")
+
+
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Help me!")
-    parser.add_argument("--dataset", type=str)
-    parser.add_argument("--percent", type=restricted_float, default=1.0)
-    parser.add_argument("--scale", type=int, default=0)
+    parser.add_argument("--dataset", type=str, help="Name of a dataset from datasets directory.")
+    parser.add_argument("--percent", type=restricted_float, default=1.0, help="What percentage of data to use. Range from (0.0, 1.0].")
+    parser.add_argument("--scale", type=int, default=0, help="Scaling range. [-scale, scale].")
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--loss", type=str, choices=["logreg", "nllsq"])
-    parser.add_argument("--optimizer", type=str, choices=["sgd", "sps", "adam"])
+    parser.add_argument("--optimizer", type=str, choices=["sgd", "sps", "sps2", "adam"])
     parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--preconditioner", type=str, choices=["none", "hutch"], default="none")
     parser.add_argument("--slack", type=str, choices=["none", "L1", "L2"], default="none")
-    parser.add_argument("--lmd", type=float, default=0.01)
+    parser.add_argument("--lmd", type=float, default=0.01, help="Lambda parameter.")
+    parser.add_argument("--mu", type=float, default=0.1, help="Mu parameter.")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--save", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--tb", action=argparse.BooleanOptionalAction) 
+    parser.add_argument("--save", action=argparse.BooleanOptionalAction, default=False, help="Select to save the results of the run.")
+    parser.add_argument("--tb", action=argparse.BooleanOptionalAction, help="Select to log metrics to Tensorboard.") 
 
     args = parser.parse_args()
 
     print(args)
 
     main(args.dataset, args.percent, args.scale, args.batch_size, args.epochs, args.loss, args.optimizer, args.lr,
-    args.preconditioner, args.slack, args.lmd, args.seed, args.save, args.tb)
-
-
-
-# python train.py --dataset= --percent= --scale_data= --batch_size= --epochs= --loss= --optimizer= --lr== --preconditioner= --slack_method= --seed= --save
-
+    args.preconditioner, args.slack, args.lmd, args.mu, args.seed, args.save, args.tb)
