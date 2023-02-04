@@ -195,7 +195,7 @@ class SPS2(Optimizer):
     @torch.no_grad()
     def update_sps(self, gnorm_square, loss):
 
-        det = 1 - (2 * loss / gnorm_square )
+        det = torch.tensor(1 - (2 * loss / gnorm_square ))
         if det < 1e-15:
             return
         else:
