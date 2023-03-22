@@ -102,12 +102,16 @@ def solve(a, b, c, d):
             D = math.sqrt(D)
             x1 = (-c + D) / (2.0 * b)
             x2 = (-c - D) / (2.0 * b)
+
+            return np.array([x1, x2])
         else:
             D = math.sqrt(-D)
             x1 = (-c + D * 1j) / (2.0 * b)
             x2 = (-c - D * 1j) / (2.0 * b)
+
+            return np.array([0.0, 0.0])
             
-        return np.array([x1, x2])               # Returning Quadratic Roots as numpy array.
+        # return np.array([x1, x2])               # Returning Quadratic Roots as numpy array.
 
     f = findF(a, b, c)                          # Helper Temporary Variable
     g = findG(a, b, c, d)                       # Helper Temporary Variable

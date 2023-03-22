@@ -4,10 +4,13 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 import torch.utils.data as data_utils
+from torch.optim import SGD, Adam, Adagrad, Adadelta, RMSprop
+from torch_optimizer import Adahessian
 
 from datasets import get_dataset
 from loss_fns import get_loss
-from optimizers import get_optimizer, SPS, SPS2
+from optimizers import PSPS, PSPS2, PSPS2_B
+
 from utils import restricted_float
 
 from torch.utils.tensorboard import SummaryWriter
@@ -16,6 +19,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+optimizers_dict = {
+    "psps": PSPS,
+    "psps2": PSPS2,
+    "psps2_b": PSPS2_B,
+    "sgd": SGD,
+    "adam": Adam,
+    "adagrad": Adagrad,
+    "adadelta": Adadelta,
+    "rmsprop": RMSprop,
+    "adahessian": Adahessian,
+}
+
+psps_classes = (PSPS, PSPS2, PSPS2_B)
 
 
 def train(seed, criterion_class, train_data, train_target, batch_size, steps, optimizer_class, tb, **optimizer_kwargs):
@@ -34,18 +52,15 @@ def train(seed, criterion_class, train_data, train_target, batch_size, steps, op
     g, = torch.autograd.grad(train_loss, params)
     grad_norm_sq = torch.linalg.norm(g).item() ** 2
     slack = 0
-    z = 0
 
     if tb:
         tb.add_scalar("loss", train_loss, 0)
         tb.add_scalar("grad_norm_squared", grad_norm_sq, 0)
-        if isinstance(optimizer, (SPS, SPS2)):
+        if isinstance(optimizer, psps_classes):
             tb.add_scalar("slack", slack, 0)
-        if isinstance(optimizer, SPS2):
-            tb.add_scalar("z", z, 0)
 
 
-    hist = [[train_loss.item(), grad_norm_sq, slack, z]]
+    hist = [[train_loss.item(), grad_norm_sq, slack]]
    
     for step in range(steps):
         for i, (batch_data, batch_target) in enumerate(train_dataloader):  
@@ -59,17 +74,14 @@ def train(seed, criterion_class, train_data, train_target, batch_size, steps, op
             
             loss = closure()
 
-            if isinstance(optimizer, SPS):     
+            if isinstance(optimizer, psps_classes):     
                 optimizer.step(closure) 
                 slack = optimizer.replay_buffer[-1]["slack"]
                 if tb:
                     tb.add_scalar("slack", slack, step + 1)
-            elif isinstance(optimizer, SPS2):     
-                optimizer.step(closure) 
-                slack = optimizer.replay_buffer[-1]["slack"]
-                z = optimizer.replay_buffer[-1]["z"]
-                if tb:
-                    tb.add_scalar("z", z, step + 1)
+            elif isinstance(optimizer, Adahessian): 
+                loss.backward(create_graph=True)    
+                optimizer.step()
             else:
                 loss.backward()
                 optimizer.step()
@@ -82,7 +94,7 @@ def train(seed, criterion_class, train_data, train_target, batch_size, steps, op
             tb.add_scalar("loss", train_loss, step + 1)
             tb.add_scalar("grad_norm_squared", grad_norm_sq, step + 1)
 
-        hist.append([train_loss.item(), grad_norm_sq, slack, z])
+        hist.append([train_loss.item(), grad_norm_sq, slack])
     
         print(f"Loss: {train_loss.item()} | GradNorm^2: {grad_norm_sq}")
 
@@ -104,11 +116,12 @@ def main(dataset, percent, scale, batch_size, epochs,
         tb_writer = None
 
     loss = get_loss(loss_class)
-    optimizer = get_optimizer(optimizer_class)
+    optimizer = optimizers_dict[optimizer_class]
     scale_range = [-scale, scale]
     train_data, train_target = get_dataset(dataset, batch_size, percent, scale_range, loss.y_range) 
 
-    if optimizer_class in ("sgd", "adam"):
+
+    if optimizer_class in ("sgd", "adam", "adagrad", "adadelta", "rmsprop", "adahessian"):
         result = train(
             seed,
             loss,
@@ -120,7 +133,7 @@ def main(dataset, percent, scale, batch_size, epochs,
             tb_writer,
             lr=lr
         )
-    elif  optimizer_class in ("sps", "sps2"):
+    elif  optimizer_class in ("psps", "psps2", "psps2_b"):
        result = train(
             seed,
             loss,
@@ -151,11 +164,8 @@ def main(dataset, percent, scale, batch_size, epochs,
         torch.save([x[0] for x in result], f"{directory}/loss")
         torch.save([x[1] for x in result], f"{directory}/grad_norm_sq")
         
-        if optimizer_class in ("sps", "sps2"):
+        if optimizer_class in ("psps", "psps2", "psps2_b"):
             torch.save([x[2] for x in result], f"{directory}/slack")
-        if optimizer_class == "sps2":
-            torch.save([x[3] for x in result], f"{directory}/z")
-
 
 
 
@@ -167,7 +177,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--loss", type=str, choices=["logreg", "nllsq"])
-    parser.add_argument("--optimizer", type=str, choices=["sgd", "sps", "sps2", "adam"])
+    parser.add_argument("--optimizer", type=str, choices=["psps", "psps2", "psps2_b", "sgd", "adam", "adagrad", "adadelta", "rmsprop", "adahessian"])
     parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--preconditioner", type=str, choices=["none", "hutch"], default="none")
     parser.add_argument("--slack", type=str, choices=["none", "L1", "L2"], default="none")
