@@ -14,8 +14,18 @@ def get_loss(loss):
         return NLLSQ
     elif loss == "nll_loss":
         return torch.functional.F.nll_loss
+    elif loss == "mse":
+        return MSE
     else:
         raise ValueError("Non-existent loss requested.")
+    
+class MSE(torch.nn.Module):
+            def __init__(self, params):
+                self.params = params
+                super().__init__()
+
+            def forward(self, input_, target):
+                return 1/2 * torch.mean( torch.norm(input_ @ self.params - target )**2 )
 
 class LogisticRegression(torch.nn.Module):
     y_range = torch.tensor([-1., 1.])

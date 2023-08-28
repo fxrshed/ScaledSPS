@@ -6,7 +6,7 @@ from utils import solve
 class PSPS(Optimizer):
 
     def __init__(self, params, preconditioner="none", slack_method="none", lmd=0.01, mu=0.1):
-        defaults = dict(s=0.0)
+        defaults = dict(s=0.0, step_size=0.0)
         self.lmd = lmd
         self.lmd_hat = 1.0 / (1.0 + self.lmd)
         
@@ -57,6 +57,7 @@ class PSPS(Optimizer):
                 "loss": loss,
                 "grad_norm_sq": gnorm_square,
                 "slack": group['s'],
+                "step_size": group["step_size"],
             }) 
                           
         return loss
@@ -64,9 +65,9 @@ class PSPS(Optimizer):
     @torch.no_grad()
     def update_sps(self, gnorm_square, loss):
         for group in self.param_groups: 
-            step_size = loss / gnorm_square
+            group["step_size"] = loss / gnorm_square
             for p in group['params']:
-                p.sub_(self.state[p]['scaled_grad'].mul(step_size))
+                p.sub_(self.state[p]['scaled_grad'].mul(group["step_size"]))
     
 
     @torch.no_grad()
@@ -77,24 +78,24 @@ class PSPS(Optimizer):
                 step_size_temp = torch.max(
                     torch.tensor(0.0), torch.tensor(loss - s + self.lmd) ) / (1 + gnorm_square)
 
-                step_size = torch.min(step_size_temp, torch.tensor(loss / gnorm_square))
+                group["step_size"] = torch.min(step_size_temp, torch.tensor(loss / gnorm_square))
 
                 group['s'] = torch.max(torch.tensor(0.0), 
                 torch.tensor(s - self.lmd + step_size_temp))
 
                 for p in group['params']:
-                    p.sub_(self.state[p]['scaled_grad'].mul(step_size))
+                    p.sub_(self.state[p]['scaled_grad'].mul(group["step_size"]))
 
     @torch.no_grad()
     def update_L2(self, gnorm_square ,loss):
         
         for group in self.param_groups: 
             s = group['s']
-            step_size = torch.max(torch.tensor(0.0), torch.tensor(loss - self.lmd_hat * s)) / (gnorm_square + self.lmd_hat)
-            group['s'] = self.lmd_hat * (s + step_size)
+            group["step_size"] = torch.max(torch.tensor(0.0), torch.tensor(loss - self.lmd_hat * s)) / (gnorm_square + self.lmd_hat)
+            group['s'] = self.lmd_hat * (s + group["step_size"])
 
             for p in group['params']:
-                p.sub_(self.state[p]['scaled_grad'].mul(step_size))
+                p.sub_(self.state[p]['scaled_grad'].mul(group["step_size"]))
             
 
     def init_empty_precond(self):

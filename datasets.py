@@ -39,7 +39,6 @@ def get_dataset(name, batch_size, percentage=1.0, scale=None):
                                                 shuffle=False) 
         return train_loader, test_loader
 
-
     else:
 
         trainX, trainY = load_svmlight_file(f"{datasets_path}/{name}")
