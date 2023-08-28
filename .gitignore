@@ -193,7 +193,7 @@ cython_debug/
 # End of https://www.toptal.com/developers/gitignore/api/linux,python,jupyternotebooks
 
 
-*.ipynb
+# *.ipynb
 *.pt
 *.out
 *.sh
